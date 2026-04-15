@@ -7,7 +7,8 @@ name = "garden-all-device"
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "urequests"
+    "urequests",
+    "ujson"
 ]
 
 [project.optional-dependencies]

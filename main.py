@@ -1,9 +1,47 @@
+import dataclasses
 import hashlib
-import json
 import os
+import time
+import typing
+import ujson
 import urequests
 
-from machine import unique_id
+from machine import unique_id, Timer
+
+
+CFG_FILE = 'config.json'
+DEFAULT_CFG = {
+    "check-cfg-interval": 86400,  # 24h
+    "read-sensors-interval": 600,
+    "activate-pump-interval": 86400,  # 24h
+    "cfg-hash": "",
+}
+
+
+@dataclasses.dataclass
+class DeviceContext:
+    fg: str
+    cfg: dict
+    timers: tuple[Timer, Timer]
+
+
+def read_sensors_cb(timer: Timer) -> None:
+    # TODO: read sensor
+    # TODO: send events
+    pass
+
+
+def activate_pump() -> None:
+    # TODO: activate pump
+    pass
+
+
+def check_cfg_cb(timer: Timer, ctx: DeviceContext) -> None:
+    cfg = fetch_config(ctx.fg)
+    if cfg and is_cfg_outdated(cfg['cfg-hash']):
+        update_local_config(cfg)
+        ctx.cfg = cfg
+        setup_timers(ctx)
 
 
 def make_device_hash() -> str:
@@ -13,25 +51,8 @@ def make_device_hash() -> str:
     return hashlib.md5((model + uuid).encode()).digest().hex()
 
 
-# $ cat config.json:
-# {
-#   "period": 3600,
-#   "config_hash": "def456",
-# }
-CFG_FILE = 'config.json'
-DEVICE_FINGERPRINT = make_device_hash()
-RUMNING_CFG = None
-DEFAULT_CFG = {
-    "period": 86400,  # 24h
-    "config_hash": "",
-}
-
-
-def fetch_config() -> dict:
-    global DEVICE_FINGERPRINT
-    global DEFAULT_CFG
-
-    url = f'https://example.com/config?device_hash={DEVICE_FINGERPRINT}'
+def fetch_config(dev_fg: str) -> typing.Optional[dict]:
+    url = f'https://example.com/config?device_hash={dev_fg}'
 
     try:
         reply = urequests.get(url)
@@ -40,52 +61,98 @@ def fetch_config() -> dict:
 
         return cfg
     except Exception:
-        print('failed to fetch config, using default')
+        print('failed to fetch config')
 
-    return DEFAULT_CFG
+    return None
 
 
-def is_cfg_outdated(cfg: dict) -> bool:
+def is_cfg_outdated(cfg_hash: str) -> bool:
+    global CFG_FILE
+
+    if not cfg_hash:
+        return False
+
     with open(CFG_FILE, 'r') as f:
-        local_cfg = json.load(f)
+        local_cfg = ujson.load(f)
 
-        if local_cfg['config_hash'] != cfg['config_hash']:
+        if local_cfg['cfg-hash'] != cfg_hash:
             return True
 
     return False
 
 
 def has_local_config() -> bool:
+    global CFG_FILE
+
     return os.path.exists(CFG_FILE)
 
 
 def update_local_config(cfg: dict) -> None:
+    global CFG_FILE
+
     with open(CFG_FILE, 'w') as f:
-        json.dump(cfg, f)
+        ujson.dump(cfg, f)
+
+
+def setup_timers(ctx: DeviceContext) -> None:
+    check_cfg_interval = int(ctx.cfg['check-cfg-interval'])
+    read_sensors_interval = int(ctx.cfg['read-sensors-interval'])
+
+    t0 = ctx.timers[0]
+    t1 = ctx.timers[1]
+
+    t0.deinit()
+    t1.deinit()
+
+    t0.init(
+        period=check_cfg_interval * 1000,
+        mode=Timer.PERIODIC,
+        callback=lambda t: check_cfg_cb(t, ctx)
+    )
+    t1.init(
+        period=read_sensors_interval * 1000,
+        mode=Timer.PERIODIC,
+        callback=read_sensors_cb
+    )
+
+
+def get_startup_cfg(dev_fg: str) -> dict:
+    global DEFAULT_CFG
+
+    cfg = fetch_config(dev_fg)
+    if cfg is None:
+        print('failed to fetch config, using default')
+        cfg = DEFAULT_CFG
+
+    return cfg
 
 
 def main() -> None:
-    print('starting up...')
+    print('starting application')
 
-    cfg = fetch_config()
-    if not has_local_config() or is_cfg_outdated(cfg):
-        update_local_config(cfg)
+    dev_fg = make_device_hash()
+    ctx = DeviceContext(
+        fg=dev_fg,
+        cfg=get_startup_cfg(dev_fg),
+        timers=(Timer(0), Timer(1))
+    )
 
-    # TODO: setup a timer to fetch config every X seconds
-    # TODO: setup a timer to read sensors every Y seconds
-    # TODO: setup a timer to activate pump every cfg['period'] seconds
+    if not has_local_config() or is_cfg_outdated(ctx.cfg['cfg-hash']):
+        update_local_config(ctx.cfg)
+
+    setup_timers(ctx)
+
+    try:
+        interval = int(ctx.cfg['activate-pump-interval'])
+
+        while True:
+            time.sleep(interval)
+            activate_pump()
+    except KeyboardInterrupt:
+        print('stoping application')
+        ctx.timers[0].deinit()
+        ctx.timers[1].deinit()
 
 
 if __name__ == '__main__':
     main()
-
-
-# TODO: local config is up to date?
-#   - checking based on config hash
-#   - no, update config
-#   - yes, nothing
-# TODO: activate pump
-#   - cronjob?
-#   - send events
-# TODO: read sensor
-#   - send events

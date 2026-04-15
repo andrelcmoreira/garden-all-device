@@ -1,0 +1,6 @@
+{
+  "check-cfg-interval": 3600,
+  "read-sensors-interval": 300,
+  "activate-pump-interval": 7200,
+  "cfg-hash": "def456",
+}
