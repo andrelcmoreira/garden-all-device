@@ -1,33 +1,34 @@
-import time
-import os
 import hashlib
-from machine import Pin, unique_id
+import os
+
+from machine import unique_id
 
 
-def main():
-    p13 = Pin(13, Pin.OUT)
+def make_device_hash() -> str:
+    model = os.uname().machine
+    uuid = unique_id().hex()
 
-    while True:
-        p13.off()
-        time.sleep(1)
-        p13.on()
-        time.sleep(1)
+    return hashlib.md5((model + uuid).encode()).digest().hex()
+
+
+def main() -> None:
+    pass
+
 
 if __name__ == "__main__":
     main()
 
 
-# TODO: os.uname().machine
-# TODO: unique_id.hex()
-# >>> ret = hashlib.md5(b'ola')
-# >>> ret.digest().hex()
-# '2fe04e524ba40505a82e03a2819429cc'
-
-
-# TODO: fetch configuration (period?)
-# TODO: local config up to date? hash
-    # TODO: no, update config
-    # TODO: yes, nothing
-# TODO: cronjob to enable pump
-# TODO: send events
+# TODO: fetch configuration
+#   - period?
+#   - cronjob?
+#   - send device hash on request
+# TODO: local config is up to date?
+#   - checking based on config hash
+#   - no, update config
+#   - yes, nothing
+# TODO: activate pump
+#   - cronjob?
+#   - send events
 # TODO: read sensor
+#   - send events
