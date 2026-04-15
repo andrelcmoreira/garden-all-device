@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling >= 1.26", "hatch-vcs >= 0.3.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "garden-all-device"
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = [
+    "urequests"
+]
+
+[project.optional-dependencies]
+dev = [
+    "micropython-esp32-stubs"
+]
+
+[tool.hatch.build]
+include = []
+
+[tool.hatch.version.raw-options]
+version_scheme = "python-simplified-semver"
+git_describe_command = ["git", "describe", "--tags"]
+
+[tool.hatch.version]
+source = "vcs"
