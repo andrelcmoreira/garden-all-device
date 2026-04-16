@@ -1,0 +1,8 @@
+adafruit-ampy==1.1.0
+click==8.3.2
+micropython-esp32-stubs==1.27.0.post1
+micropython-stdlib-stubs==1.27.0.post2
+pyserial==3.5
+python-dotenv==1.2.2
+ujson==5.12.0
+urequests==0.1.2
