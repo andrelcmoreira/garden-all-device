@@ -9,13 +9,8 @@ import urequests
 from machine import unique_id, Timer
 
 
-CFG_FILE = 'config.json'
-DEFAULT_CFG = {
-    "check-cfg-interval": 86400,  # 24h
-    "read-sensors-interval": 600,
-    "activate-pump-interval": 86400,  # 24h
-    "cfg-hash": "",
-}
+CFG_FILE = 'cfg.json'
+DEFAULT_CHECK_CFG_INTERVAL = 60  # 1m
 
 
 @dataclasses.dataclass
@@ -33,6 +28,7 @@ def read_sensors_cb(timer: Timer) -> None:
 
 def activate_pump() -> None:
     # TODO: activate pump
+    # TODO: send events
     pass
 
 
@@ -52,7 +48,7 @@ def make_device_hash() -> str:
 
 
 def fetch_config(dev_fg: str) -> typing.Optional[dict]:
-    url = f'http://example.com/api/v1/devices/{dev_fg}/config'
+    url = f'http://SERVER_IP/api/v1/devices/{dev_fg}/config'
 
     try:
         reply = urequests.get(url)
@@ -113,27 +109,23 @@ def setup_timers(ctx: DeviceContext) -> None:
     )
 
 
-def get_startup_cfg(dev_fg: str) -> dict:
-    global DEFAULT_CFG
-
-    cfg = fetch_config(dev_fg)
-    if cfg is None:
-        print('failed to fetch config, using default')
-        cfg = DEFAULT_CFG
-
-    return cfg
-
-
 def main() -> None:
+    global DEFAULT_CHECK_CFG_INTERVAL
+
     print('starting application')
 
     dev_fg = make_device_hash()
-    ctx = DeviceContext(
-        fg=dev_fg,
-        cfg=get_startup_cfg(dev_fg),
-        timers=(Timer(0), Timer(1))
-    )
+    while True:
+        print('fetching config...')
+        cfg = fetch_config(dev_fg)
+        if cfg:
+            break
 
+        time.sleep(DEFAULT_CHECK_CFG_INTERVAL)
+
+    print(f'config received: {cfg}')
+
+    ctx = DeviceContext(fg=dev_fg, cfg=cfg, timers=(Timer(0), Timer(1)))
     if not has_local_config() or is_cfg_outdated(ctx.cfg['cfg-hash']):
         update_local_config(ctx.cfg)
 
