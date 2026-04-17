@@ -48,11 +48,11 @@ def make_device_hash() -> str:
     model = os.uname().machine
     uuid = unique_id().hex()
 
-    return hashlib.md5((model + uuid).encode()).digest().hex()
+    return hashlib.md5((model + uuid).encode()).hexdigest()
 
 
 def fetch_config(dev_fg: str) -> typing.Optional[dict]:
-    url = f'https://example.com/config?device_hash={dev_fg}'
+    url = f'http://example.com/api/v1/devices/{dev_fg}/config'
 
     try:
         reply = urequests.get(url)
@@ -95,9 +95,6 @@ def update_local_config(cfg: dict) -> None:
 
 
 def setup_timers(ctx: DeviceContext) -> None:
-    check_cfg_interval = int(ctx.cfg['check-cfg-interval'])
-    read_sensors_interval = int(ctx.cfg['read-sensors-interval'])
-
     t0 = ctx.timers[0]
     t1 = ctx.timers[1]
 
@@ -105,12 +102,12 @@ def setup_timers(ctx: DeviceContext) -> None:
     t1.deinit()
 
     t0.init(
-        period=check_cfg_interval * 1000,
+        period=ctx.cfg['check-cfg-interval'] * 1000,
         mode=Timer.PERIODIC,
         callback=lambda t: check_cfg_cb(t, ctx)
     )
     t1.init(
-        period=read_sensors_interval * 1000,
+        period=ctx.cfg['read-sensors-interval'] * 1000,
         mode=Timer.PERIODIC,
         callback=read_sensors_cb
     )
@@ -143,10 +140,8 @@ def main() -> None:
     setup_timers(ctx)
 
     try:
-        interval = int(ctx.cfg['activate-pump-interval'])
-
         while True:
-            time.sleep(interval)
+            time.sleep(ctx.cfg['activate-pump-interval'])
             activate_pump()
     except KeyboardInterrupt:
         print('stoping application')
