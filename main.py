@@ -44,7 +44,7 @@ def make_device_hash() -> str:
     model = os.uname().machine
     uuid = unique_id().hex()
 
-    return hashlib.md5((model + uuid).encode()).hexdigest()
+    return hashlib.sha256((model + uuid).encode()).hexdigest()
 
 
 def fetch_config(dev_fg: str) -> typing.Optional[dict]:
