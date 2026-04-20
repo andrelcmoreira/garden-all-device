@@ -1,8 +1,6 @@
-import dataclasses
 import hashlib
 import os
 import time
-import typing
 import ujson
 import urequests
 
@@ -11,9 +9,9 @@ from machine import unique_id, Timer
 
 CFG_FILE = 'cfg.json'
 DEFAULT_CHECK_CFG_INTERVAL = 60  # 1m
+SERVER_IP = '192.168.0.8'
 
 
-@dataclasses.dataclass
 class DeviceContext:
     fg: str
     cfg: dict
@@ -49,8 +47,8 @@ def make_device_hash() -> str:
     return ret.hex()
 
 
-def fetch_config(dev_fg: str) -> typing.Optional[dict]:
-    url = f'http://SERVER_IP/api/v1/devices/{dev_fg}/config'
+def fetch_config(dev_fg: str) -> dict | None:
+    url = f'http://{SERVER_IP}/api/v1/devices/{dev_fg}/config/'
 
     try:
         reply = urequests.get(url)
