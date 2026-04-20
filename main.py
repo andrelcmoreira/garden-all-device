@@ -41,10 +41,12 @@ def check_cfg_cb(timer: Timer, ctx: DeviceContext) -> None:
 
 
 def make_device_hash() -> str:
-    model = os.uname().machine
-    uuid = unique_id().hex()
+    hash_obj = hashlib.sha256(
+        (os.uname().machine + unique_id().hex()).encode()
+    )
+    ret = hash_obj.digest()
 
-    return hashlib.sha256((model + uuid).encode()).hexdigest()
+    return ret.hex()
 
 
 def fetch_config(dev_fg: str) -> typing.Optional[dict]:
