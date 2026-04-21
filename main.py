@@ -22,20 +22,20 @@ class DeviceContext:
 
 
 def read_sensors_cb(timer: Timer) -> None:
-    # TODO: read sensor
+    print('reading sensors...')
     # TODO: send events
-    pass
 
 
 def activate_pump() -> None:
-    # TODO: activate pump
+    print('activating pump...')
     # TODO: send events
-    pass
 
 
 def check_cfg_cb(timer: Timer, ctx: DeviceContext) -> None:
+    print('checking cfg updates...')
     cfg = fetch_config(ctx.fg)
     if cfg and is_cfg_outdated(cfg['cfg_hash']):
+        print(f'new cfg: {cfg}')
         update_local_config(cfg)
         ctx.cfg = cfg
         setup_timers(ctx)
@@ -131,17 +131,17 @@ def main() -> None:
     print('starting application')
 
     dev_fg = make_device_hash()
-
     if has_local_config():
-        print('local config found, loading...')
+        print('local config found, using it...')
         cfg = get_local_config()
     else:
         print('no local config found, fetching from server...')
 
         while True:
-            print('fetching config...')
+            print('trying to fetch the device config...')
             cfg = fetch_config(dev_fg)
             if cfg:
+                update_local_config(cfg)
                 break
 
             time.sleep(DEFAULT_CHECK_CFG_INTERVAL)
@@ -149,8 +149,6 @@ def main() -> None:
     print(f'config used: {cfg}')
 
     ctx = DeviceContext(fg=dev_fg, cfg=cfg, timers=(Timer(0), Timer(1)))
-    if is_cfg_outdated(ctx.cfg['cfg_hash']):
-        update_local_config(ctx.cfg)
 
     setup_timers(ctx)
 
