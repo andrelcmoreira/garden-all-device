@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import os
 import time
@@ -34,7 +35,7 @@ def activate_pump() -> None:
 
 def check_cfg_cb(timer: Timer, ctx: DeviceContext) -> None:
     cfg = fetch_config(ctx.fg)
-    if cfg and is_cfg_outdated(cfg['cfg-hash']):
+    if cfg and is_cfg_outdated(cfg['cfg_hash']):
         update_local_config(cfg)
         ctx.cfg = cfg
         setup_timers(ctx)
@@ -73,7 +74,7 @@ def is_cfg_outdated(cfg_hash: str) -> bool:
     with open(CFG_FILE, 'r') as f:
         local_cfg = ujson.load(f)
 
-        if local_cfg['cfg-hash'] != cfg_hash:
+        if local_cfg['cfg_hash'] != cfg_hash:
             return True
 
     return False
@@ -82,7 +83,13 @@ def is_cfg_outdated(cfg_hash: str) -> bool:
 def has_local_config() -> bool:
     global CFG_FILE
 
-    return os.path.exists(CFG_FILE)
+    try:
+        os.stat(CFG_FILE)
+    except OSError as e:
+        if e.args[0] == errno.ENOENT:
+            return False
+
+    return True
 
 
 def get_local_config() -> dict:
@@ -107,12 +114,12 @@ def setup_timers(ctx: DeviceContext) -> None:
     t1.deinit()
 
     t0.init(
-        period=ctx.cfg['check-cfg-interval'] * 1000,
+        period=ctx.cfg['check_cfg_interval'] * 1000,
         mode=Timer.PERIODIC,
         callback=lambda t: check_cfg_cb(t, ctx)
     )
     t1.init(
-        period=ctx.cfg['read-sensors-interval'] * 1000,
+        period=ctx.cfg['read_sensors_interval'] * 1000,
         mode=Timer.PERIODIC,
         callback=read_sensors_cb
     )
@@ -142,14 +149,14 @@ def main() -> None:
     print(f'config used: {cfg}')
 
     ctx = DeviceContext(fg=dev_fg, cfg=cfg, timers=(Timer(0), Timer(1)))
-    if is_cfg_outdated(ctx.cfg['cfg-hash']):
+    if is_cfg_outdated(ctx.cfg['cfg_hash']):
         update_local_config(ctx.cfg)
 
     setup_timers(ctx)
 
     try:
         while True:
-            time.sleep(ctx.cfg['activate-pump-interval'])
+            time.sleep(ctx.cfg['activate_pump_interval'])
             activate_pump()
     except KeyboardInterrupt:
         print('stoping application')
