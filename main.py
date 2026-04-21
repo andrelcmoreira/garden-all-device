@@ -13,9 +13,11 @@ SERVER_IP = '192.168.0.8'
 
 
 class DeviceContext:
-    fg: str
-    cfg: dict
-    timers: tuple[Timer, Timer]
+
+    def __init__(self, fg: str, cfg: dict, timers: tuple[Timer, Timer]):
+        self.fg = fg
+        self.cfg = cfg
+        self.timers = timers
 
 
 def read_sensors_cb(timer: Timer) -> None:
@@ -83,6 +85,13 @@ def has_local_config() -> bool:
     return os.path.exists(CFG_FILE)
 
 
+def get_local_config() -> dict:
+    global CFG_FILE
+
+    with open(CFG_FILE, 'r') as f:
+        return ujson.load(f)
+
+
 def update_local_config(cfg: dict) -> None:
     global CFG_FILE
 
@@ -115,18 +124,25 @@ def main() -> None:
     print('starting application')
 
     dev_fg = make_device_hash()
-    while True:
-        print('fetching config...')
-        cfg = fetch_config(dev_fg)
-        if cfg:
-            break
 
-        time.sleep(DEFAULT_CHECK_CFG_INTERVAL)
+    if has_local_config():
+        print('local config found, loading...')
+        cfg = get_local_config()
+    else:
+        print('no local config found, fetching from server...')
 
-    print(f'config received: {cfg}')
+        while True:
+            print('fetching config...')
+            cfg = fetch_config(dev_fg)
+            if cfg:
+                break
+
+            time.sleep(DEFAULT_CHECK_CFG_INTERVAL)
+
+    print(f'config used: {cfg}')
 
     ctx = DeviceContext(fg=dev_fg, cfg=cfg, timers=(Timer(0), Timer(1)))
-    if not has_local_config() or is_cfg_outdated(ctx.cfg['cfg-hash']):
+    if is_cfg_outdated(ctx.cfg['cfg-hash']):
         update_local_config(ctx.cfg)
 
     setup_timers(ctx)
