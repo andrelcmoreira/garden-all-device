@@ -1,3 +1,4 @@
+import enum
 import errno
 import hashlib
 import os
@@ -21,24 +22,61 @@ class DeviceContext:
         self.timers = timers
 
 
-def read_sensors_cb(timer: Timer) -> None:
+class EventType(enum.Enum):
+    SENSORS_READ = 'sensors_read'
+    PUMP_ACTIVATED = 'pump_activated'
+
+
+def read_sensors_cb(timer: Timer, ctx: DeviceContext) -> None:
     print('reading sensors...')
-    # TODO: send events
+
+    # TODO: read sensors logic
+
+    send_event(
+        ctx.fg,
+        EventType.SENSORS_READ,
+        {
+            'timestamp': time.time(),
+            'soil_moisture': 42, # TODO: replace with actual value
+            'temperature': 25.5, # TODO: replace with actual value
+            'light': 300 # TODO: replace with actual value
+        }
+    )
 
 
-def activate_pump() -> None:
+def activate_pump(ctx: DeviceContext) -> None:
     print('activating pump...')
-    # TODO: send events
+
+    # TODO: activate pump logic
+
+    send_event(ctx.fg, EventType.PUMP_ACTIVATED, {'timestamp': time.time()})
 
 
 def check_cfg_cb(timer: Timer, ctx: DeviceContext) -> None:
     print('checking cfg updates...')
+
     cfg = fetch_config(ctx.fg)
     if cfg and is_cfg_outdated(cfg['cfg_hash']):
         print(f'new cfg: {cfg}')
         update_local_config(cfg)
         ctx.cfg = cfg
         setup_timers(ctx)
+
+
+def send_event(dev_fg: str, event_type: EventType, data: dict) -> None:
+    global SERVER_IP
+
+    url = f'http://{SERVER_IP}/api/v1/devices/{dev_fg}/events/'
+    payload = {
+        'type': event_type,
+        'data': data
+    }
+
+    try:
+        reply = urequests.post(url, json=payload)
+        reply.close()
+    except Exception:
+        print('failed to send event')
 
 
 def make_device_hash() -> str:
@@ -121,7 +159,7 @@ def setup_timers(ctx: DeviceContext) -> None:
     t1.init(
         period=ctx.cfg['read_sensors_interval'] * 1000,
         mode=Timer.PERIODIC,
-        callback=read_sensors_cb
+        callback=lambda t: read_sensors_cb(t, ctx)
     )
 
 
@@ -155,7 +193,7 @@ def main() -> None:
     try:
         while True:
             time.sleep(ctx.cfg['activate_pump_interval'])
-            activate_pump()
+            activate_pump(ctx)
     except KeyboardInterrupt:
         print('stoping application')
         ctx.timers[0].deinit()
